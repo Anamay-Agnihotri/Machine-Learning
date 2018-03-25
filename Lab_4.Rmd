@@ -1,0 +1,167 @@
+---
+title: "Lab_4"
+author: "Anamay"
+date: "2/16/2018"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r}
+require(mice)
+require(miceadds)
+library(ggplot2)
+require(ggthemes)
+require(caret)
+require(png)
+require(rlist)
+library(flexclust)
+require(SwarmSVM)
+library(cluster)
+library(fpc)
+```
+
+```{r}
+setwd("/Users/Anamay/Desktop/Hieroglyphics")
+getwd()
+Allfiles <- list.files()
+
+### Reading in files from directory
+#Images <- data.frame()
+#for (i in 1:4415)
+#{
+#  temp <- readPNG(Allfiles[i])
+#  temp2 <- data.frame(matrix(temp, nrow=1, ncol = 50*75))
+#  Images <- rbind(Images,temp2)
+  
+#  if (i%%100 == 0)
+#  {
+#    print(i)
+#  }
+#}
+
+### Reading in the csv directly
+Images <- read.csv("/Users/Anamay/Desktop/Images.csv")
+Images <- Images[,2:3751] # taking out the index
+```
+
+```{r}
+wss = list(60)
+x= Sys.time()
+for (k in 2:60)
+{ 
+  print(k)
+  wss[k] = sum(kmeans(Images[,],k)$tot.withinss)
+  print(wss[k])
+}
+y = Sys.time()
+
+time = y-x
+print(time)
+
+x <- c(2:60)
+x
+Full_Data <- data.frame(x,wss)
+Full_Data
+#val <- (kmeans(Images[,],10,algorithm = "MacQueen")$tot.withinss)
+G <- ggplot()+
+  geom_point(data=Full_Data, aes(x=x[2:60], y=as.numeric(wss[2:60])),color='steelblue',size=2)+
+  ggtitle("Fig 1. Within SS vs Number of clusters")+
+  labs(x="Number of Clusters",y = "Within groups sum of squares (SS)")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+G
+```
+
+
+```{r}
+for(i in 1:40)
+{
+  setwd("/Users/Anamay/Desktop/Hieroglyphics")
+  getwd()
+  dir.create(paste("Cluster",i,sep = ""))
+}
+```
+
+```{r}
+x = Sys.time()
+km40 <- kmeans(Images[,],40)
+y = Sys.time()
+time = y-x 
+#print(time)
+```
+
+```{r}
+clusplot(Images, km40$cluster, color=TRUE, shade=TRUE, labels=2, lines=0)
+```
+
+```{r}
+List1 = km40$cluster
+
+for (i in 1:4415)
+{
+  index = List1[i]
+  setwd("/Users/Anamay/Desktop/Hieroglyphics")
+  temp = readPNG(Allfiles[i])
+  setwd(paste("/Users/Anamay/Desktop/Hieroglyphics/Cluster",index,sep=""))
+  getwd()
+  writePNG(temp, target = paste("File",i,".png",sep = ""))
+}
+```
+
+```{r}
+setwd("/Users/Anamay/Desktop/Predictions")
+getwd()
+Predicts <- list.files()
+
+Test <- data.frame()
+for (i in 1:5)
+{
+  temp <- readPNG(Predicts[i])
+  temp2 <- data.frame(matrix(temp, nrow=1, ncol = 50*75))
+  Test <- rbind(Test,temp2)
+}
+```
+
+```{r}
+closest.cluster <- function(x) 
+{
+  cluster.dist <- apply(km40$centers, 1,function(y) sqrt(sum((x-y)^2)))
+  return(which.min(cluster.dist)[1])
+}
+
+List2 <- apply(Test,1,closest.cluster)
+List3 <- SwarmSVM:::kmeans.predict(Test,cluster.object = km40)
+List2
+print(List2 == List3) #creates the same predictions
+```
+
+```{r}
+for (i in 1:5)
+{
+  index = List2[i]
+  setwd("/Users/Anamay/Desktop/Predictions")
+  temp = readPNG(Predicts[i])
+  setwd(paste("/Users/Anamay/Desktop/Hieroglyphics/Cluster",index,sep=""))
+  getwd()
+  writePNG(temp, target = paste("File",i,".png",sep = ""))
+}
+```
+
+```{r}
+# Differnt approach for visual depiction.
+
+cl1 = kcca(Images[,],k=40, kccaFamily("kmeans"))
+
+pred_train <- predict(cl1)
+
+pred_test <- predict(cl1, newdata=Test[,])
+
+image(cl1)
+points(Images, col=pred_train, pch=1, cex=0.3)
+points(Test, col=pred_test, pch=21,cex=2, bg="orange")
+```
+
+
+
+
