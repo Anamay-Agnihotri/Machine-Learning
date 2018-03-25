@@ -1,0 +1,200 @@
+---
+title: "Lab_6"
+author: "Anamay"
+date: "3/8/2018"
+output: html_document
+---
+
+```{r}
+library(ggfortify)
+require(ggplot2)
+require(dplyr)
+require(reshape2)
+require(pdist)
+require(caret)
+library(data.table)
+```
+
+```{r}
+Train <- read.csv(file="/Users/Anamay/Desktop/DA350/Lab6data/train_movies.csv",header=TRUE, sep=",")
+Test <- read.csv(file="/Users/Anamay/Desktop/Lab6data/test_movies.csv",header=TRUE, sep=",")
+```
+
+## Q1.
+
+```{r}
+TrainS <- Train[1:1500,]
+TestS <- Test[1:1500,]
+TestS2 <- Test[1:1500,]
+Users <- TrainS[,1]
+TrainS <- TrainS[,2:ncol(TrainS)]
+TestS <- TestS[,2:ncol(TestS)]
+TrainS[!is.na(TrainS)] <- 1
+TrainS[is.na(TrainS)] <- 0
+TestS[!is.na(TestS)] <- 1
+TestS[is.na(TestS)] <- 0
+TestS2[!is.na(TestS2)] <- 1
+TestS2[is.na(TestS2)] <- 0
+```
+
+## Q2.
+
+```{r}
+TrainS$mId1197 <- as.factor(TrainS$mId1197)
+TestS$mId1197 <- as.factor(TestS$mId1197)
+x = Sys.time()
+simple_fit = train(mId1197 ~., data = TrainS, method = "knn",
+                   preProcess = c("center", "scale"),
+                   tuneGrid=expand.grid(k=25))
+y = Sys.time()
+time = y-x
+print(time)
+simple_fit
+```
+
+## Q3.
+
+```{r}
+test_pred = predict(simple_fit, newdata = TestS)
+summary(test_pred)
+confusionMatrix(test_pred, TestS$mId1197) # doesn't really maximize accuracy; sensitivity is                                                higher
+```
+
+## Q4.
+
+```{r}
+Probs <- predict(simple_fit,TestS, type="prob")
+summary(Probs)
+
+Perf = setNames(data.frame(matrix(ncol = 8, nrow = 101)), c("Cutoff","TN", "FN", "TP", "FP", "Sensitivity", "Specificity","Accuracy"))
+Perf$Cutoff = seq(0,1,.01)
+
+for (i in 2:100)
+{
+  matrix = table(Probs[2] > Perf$Cutoff[i],TestS$mId1197)
+  TN = matrix[1,1]
+  FN = matrix[1,2]
+  FP = matrix[2,1]
+  TP = matrix[2,2]
+  Perf$TN[i] = TN
+  Perf$TP[i] = TP
+  Perf$FN[i] = FN
+  Perf$FP[i] = FP
+  Perf$Sensitivity[i] = TP/(FN+TP)
+  Perf$Specificity[i] = TN/(TN+FP)
+  Perf$Accuracy[i] = (TP+TN)/(FP+FN+TP+TN)
+}
+
+#When cutoff is 0, classify everything as positive:
+Perf$TN[1] = 0
+Perf$TP[1] = sum(TestS2$mId1197)
+Perf$FN[1] = 0
+Perf$FP[1] = nrow(TestS) - Perf$TP[1]
+Perf$Sensitivity[1] = 1
+Perf$Specificity[1] = 0
+Perf$Accuracy[1] = sum(TestS2$mId1197) / nrow(TestS)
+
+#When cutoff is 1, classify everything as negative:
+Perf$TN[82:101] = nrow(TestS) - sum(TestS2$mId1197)
+Perf$TP[82:101] = 0
+Perf$FN[82:101] = sum(TestS2$mId1197)
+Perf$FP[82:101] = 0
+Perf$Sensitivity[82:101] = 0
+Perf$Specificity[82:101] = 1
+Perf$Accuracy[82:101] = 1 - sum(TestS2$mId1197) / nrow(TestS2)
+```
+
+## Q5.
+
+```{r}
+G <- ggplot(data=Perf)+
+  geom_line(aes(x=(1-Specificity), y=Sensitivity),color='steelblue')+
+  ggtitle("Fig 1. Receiver Operating Characteristic (ROC) Curve")+
+  labs(x='1- Specificity',y ='Sensitivity' )+
+  theme(legend.title=element_blank())+
+  theme(plot.title = element_text(hjust = 0.5))
+G
+```
+
+The above ROC curve gives us a good idea of the trade-off between sensitivity and specificity in our data.
+
+```{r}
+G <- ggplot(data=Perf)+
+  geom_line(aes(x=Cutoff, y=Sensitivity,color='Sensitivity'))+
+  geom_line(aes(x=Cutoff, y=Specificity,color='Specificity'))+
+  geom_line(aes(x=Cutoff, y=Accuracy,color='Accuracy'))+
+  geom_vline(xintercept=0.10,color="aquamarine3",size=1.2)+
+  geom_vline(xintercept=0.16,color='gold3',size=1.2)+
+  scale_colour_manual(values=c(Sensitivity="steelblue",Specificity="red",Accuracy="green"))+
+  labs(x='Cutoffs',y = 'Value')+
+  theme(legend.title=element_blank())+
+  theme(plot.title = element_text(hjust = 0.5))
+G
+```
+
+As seen in the graph above and in the calculations, there always seems to be a trade-off between accuracy, sensitiviy and specificity. Specifically, sensitivity and specificity have an understandably inverse relationship with respect to the probability cutoff values (seen in the ROC curve). Sensitivity is the ratio of the true positives to the total true actuals, it is a measure of how good the predictions are at detecting the truth. Specificity, on the other hand tells us how good the model is at detecting the false. 
+
+From the graph, it seems like a good balance between the two is struck around the 0.11 to 0.16 probability cutoffs. In this region (between the aquamarine and gold lines), both the specificity and the sensitivity are relatively even and it is around this region that accuracy seems to start leveling off. 
+
+For our purposes, we need to make sure we have a high enough sensitivity so that we capture a high % of our target audience while making sure we don't send ads in futile to those who wouldn't watch the movie anyway. 
+
+It is, clearly, not of much help to look at the statistics in isolation. Let us define a loss function and try to evalutate the impact of the cutoffs on overall profits.
+
+```{r}
+Profits <- setNames(data.frame(matrix(ncol = 3, nrow = 101)), c("Cutoff","ProfitOC", "Profit"))
+Profits$Cutoff = seq(0,1,.01)
+for (i in 1:101)
+{
+  Profits$ProfitOC[i] <- Perf$FP[i]*(-0.20) + Perf$TP[i]*(0.8) + Perf$FN[i]*(-0.8)
+  Profits$Profit[i] <- Perf$FP[i]*(-0.20) + Perf$TP[i]*(0.8)
+}
+
+G2 <- ggplot(data=Profits)+
+  geom_line(aes(x=Cutoff, y=ProfitOC,color='ProfitOC'),size=1.2)+
+  geom_line(aes(x=Cutoff, y=Profit,color='Profit'),size=1.2)+
+  scale_colour_manual(values=c(ProfitOC="steelblue",Profit="gold2"))+
+  ggtitle("Fig 3. Cutoff values vs. profits")+
+  geom_vline(xintercept = 0.15,color="red")+
+  geom_hline(yintercept = 0,color="green",size=1.4)+
+  labs(x='Cutoffs',y = 'Profit')+
+  theme(legend.title=element_blank())+
+  theme(plot.title = element_text(hjust = 0.5))
+
+G2
+```
+
+As seen in the graph above, profit calculations are done based on a loss function. In the loss function, a False Positive causes a `$`0.2 loss as you would be sending an ad to a user who does not want to watch the movie, a True Positive causes a `$`0.8 profit (`$`1 made off of the purchase-`$`0.2 to send the ad) as you would be hitting your target audience. These profits are shown by the magenta line in the graph. 
+
+However, if you consider the opportunity cost of missing out on potential users, you have to also subtract the lost revenue of not sending ads to those who would have otherwise seen the movie (False Negatives).
+
+## Q6.
+
+Based on the above profits/cutoff graph, let us use the 0.15 cutoff.
+
+### a.
+
+The true positives are the people who would watch the movie, given they see the ad for the movie. For the 0.15 cutoff, the TP is 179 users in a set of 1500 users. For a test set of 10000 users, that comes out to around 1193 users.
+
+### b.
+
+In terms of overall profits, as seen in the graph above, at the 0.15 cutoff, we would expect to make `$`111.4 for the 1500 users. Scaled to 10000 users, that would be `$`742.6. 
+
+### c.
+
+```{r}
+Wasted <- Perf$FP[16]*(-0.20)   # False positives at 0.15 
+Wasted
+```
+
+Money wasted on ads would be for the users who we predicted would watch the movie but don't i.e the false positives. As seen above, this is a `$`31.8 loss for 1500 users. Scaled up, this would be a `$`212 loss.
+
+### d.
+
+```{r}
+Missed <- Perf$FN[16]*(-0.80)   # False positives at 0.15 
+Missed
+Perf$TP[16]*(0.8)
+```
+
+Potential users missed would be the users we predicted would not watch the movie but would have seen it if shown the ads. As seen above, this is a `$`144.8 loss for 1500 users. Scaled up, this would be a `$` 965.3 missed profit.
+
