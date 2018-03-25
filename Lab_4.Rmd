@@ -22,26 +22,28 @@ library(fpc)
 ```
 
 ```{r}
-setwd("/Users/Anamay/Desktop/Hieroglyphics")
+setwd("add working directory path")
 getwd()
+
 Allfiles <- list.files()
 
 ### Reading in files from directory
-#Images <- data.frame()
-#for (i in 1:4415)
-#{
-#  temp <- readPNG(Allfiles[i])
-#  temp2 <- data.frame(matrix(temp, nrow=1, ncol = 50*75))
-#  Images <- rbind(Images,temp2)
-  
-#  if (i%%100 == 0)
-#  {
-#    print(i)
-#  }
-#}
 
-### Reading in the csv directly
-Images <- read.csv("/Users/Anamay/Desktop/Images.csv")
+Images <- data.frame()
+for (i in 1:4415)
+{
+  temp <- readPNG(Allfiles[i])
+  temp2 <- data.frame(matrix(temp, nrow=1, ncol = 50*75))
+  Images <- rbind(Images,temp2)
+  
+  if (i%%100 == 0)
+  {
+    print(i)
+  }
+}
+
+### Reading in the csv directly. Note: `Images` file is obtained privately from: https://dl.acm.org/citation.cfm?id=2502199
+Images <- read.csv("csv file path/name")
 Images <- Images[,2:3751] # taking out the index
 ```
 
@@ -60,10 +62,10 @@ time = y-x
 print(time)
 
 x <- c(2:60)
-x
 Full_Data <- data.frame(x,wss)
 Full_Data
-#val <- (kmeans(Images[,],10,algorithm = "MacQueen")$tot.withinss)
+val <- (kmeans(Images[,],10,algorithm = "MacQueen")$tot.withinss) # can take a while to run - running on 3000+ dimentional                                                                         space
+
 G <- ggplot()+
   geom_point(data=Full_Data, aes(x=x[2:60], y=as.numeric(wss[2:60])),color='steelblue',size=2)+
   ggtitle("Fig 1. Within SS vs Number of clusters")+
@@ -73,11 +75,12 @@ G <- ggplot()+
 G
 ```
 
-
 ```{r}
+## Assigning the images to external files based on clustering
+
 for(i in 1:40)
 {
-  setwd("/Users/Anamay/Desktop/Hieroglyphics")
+  setwd("working directory path")
   getwd()
   dir.create(paste("Cluster",i,sep = ""))
 }
@@ -85,10 +88,10 @@ for(i in 1:40)
 
 ```{r}
 x = Sys.time()
-km40 <- kmeans(Images[,],40)
+km40 <- kmeans(Images[,],40) # can take a while
 y = Sys.time()
 time = y-x 
-#print(time)
+#print(time) 
 ```
 
 ```{r}
@@ -101,16 +104,16 @@ List1 = km40$cluster
 for (i in 1:4415)
 {
   index = List1[i]
-  setwd("/Users/Anamay/Desktop/Hieroglyphics")
+  setwd("....")
   temp = readPNG(Allfiles[i])
-  setwd(paste("/Users/Anamay/Desktop/Hieroglyphics/Cluster",index,sep=""))
+  setwd(paste("/path/Cluster",index,sep=""))
   getwd()
   writePNG(temp, target = paste("File",i,".png",sep = ""))
 }
 ```
 
 ```{r}
-setwd("/Users/Anamay/Desktop/Predictions")
+setwd("/path/Predictions")
 getwd()
 Predicts <- list.files()
 
@@ -131,7 +134,7 @@ closest.cluster <- function(x)
 }
 
 List2 <- apply(Test,1,closest.cluster)
-List3 <- SwarmSVM:::kmeans.predict(Test,cluster.object = km40)
+List3 <- SwarmSVM:::kmeans.predict(Test,cluster.object = km40) # can be done with other packages too!
 List2
 print(List2 == List3) #creates the same predictions
 ```
@@ -142,7 +145,7 @@ for (i in 1:5)
   index = List2[i]
   setwd("/Users/Anamay/Desktop/Predictions")
   temp = readPNG(Predicts[i])
-  setwd(paste("/Users/Anamay/Desktop/Hieroglyphics/Cluster",index,sep=""))
+  setwd(paste("/path/Cluster",index,sep=""))
   getwd()
   writePNG(temp, target = paste("File",i,".png",sep = ""))
 }
