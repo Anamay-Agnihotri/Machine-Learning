@@ -11,13 +11,16 @@ Make sure you install all the package requirements shown in the rmd (or .ipynb) 
 
 #### Repository contains:
 
+Sentiment analysis using Naive-Bayes classifier.
+
+Hidden markov model (HMM) implementation using Viterbi algorithm for part of speech tagging.
+
+Sentence parsing in nltk and context-free-grammars with a CKY parser.
+
 Hieroglyphic clustering using K-means
 
 Market-based prediction modelling for video-rental service data using k-nearest neighbours.
 
-Sentiment analysis using Naive-Bayes classifier.
-
-Hidden markov model (HMM) implementation using Viterbi algorithm for part of speech tagging.
 
 Text perplexity calculator using bi-grams.
 
